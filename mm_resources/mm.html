@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Model Mayhem - Dashboard</title>
+  <style>
+    /* Global Styles */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #e0e0e0;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    a {
+      color: #bb86fc;
+      text-decoration: none;
+    }
+    button, input[type="submit"] {
+      background-color: #bb86fc;
+      color: #121212;
+      border: none;
+      padding: 4px 6px;
+      cursor: pointer;
+      margin: 5px 0;
+    }
+    button:hover, input[type="submit"]:hover {
+      opacity: 0.9;
+    }
+    input[type="text"], input[type="password"] {
+      width: 300px;
+      padding: 5px;
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+      border: 1px solid #333;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+      border: 1px solid #333;
+    }
+    th, td {
+      border: 1px solid #333;
+      padding: 4px;
+      text-align: left;
+    }
+    th {
+      background-color: #222;
+    }
+    tr:hover {
+      background-color: #333;
+    }
+    .log {
+      background-color: #1e1e1e;
+      border: 1px solid #333;
+      padding: 10px;
+      font-family: monospace;
+      max-height: 200px;
+      overflow-y: auto;
+      overflow-x: auto; /* Enable horizontal scrolling instead of wrapping */
+      margin-top: 10px;
+      white-space: pre; /* Prevent wrapping */
+    }
+    /* Layout */
+    .container {
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200px;
+      height: 100vh;
+      border-right: 1px solid #333;
+      padding: 0 20px 40px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background-color: #121212;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+    .sidebar li {
+      margin: 10px 0;
+    }
+    .sidebar li a {
+      display: block;
+      padding: 10px;
+      background-color: #222;
+      border-radius: 4px;
+    }
+    .sidebar li a.active {
+      background-color: #bb86fc;
+      color: #121212;
+    }
+    /* Version tooltip styling */
+    #mm-version {
+      display: inline-block;
+      align-content: center;
+      cursor: help;
+      width: 100%;
+      padding-bottom: 20px;
+    }
+    .main-content {
+      flex: 1;
+      padding-left: 20px;
+      margin-left: 220px;
+      display: block;
+      /* margin-top will be set dynamically via JavaScript */
+    }
+    /* GPU Stats: Fixed at the top */
+    #gpu-stats {
+      position: fixed;
+      top: 0;
+      left: 240px; /* offset for the sidebar */
+      right: 20px;
+      display: grid;
+      grid-gap: 5px;
+      grid-template-columns: repeat(4, 1fr);
+      background-color: #121212;
+      padding: 20px;
+      z-index: 1000;
+    }
+    .progress-bar {
+      width: 275px;
+      background-color: #333;
+      border-radius: 5px;
+      overflow: hidden;
+      margin: 6px 0;
+    }
+    .progress {
+      height: 20px;
+      background-color: #bb86fc;
+      width: 0%;
+      transition: width 0.5s;
+    }
+    @media (max-width: 1400px) {
+      #gpu-stats {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    @media (max-width: 1125px) {
+      #gpu-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (max-width: 799px) {
+      #gpu-stats {
+        grid-template-columns: 1fr;
+      }
+    }
+    #tabs-container {
+      margin-bottom: 20px;
+    }
+    .section {
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+    }
+    /* Modal Styles */
+    .modal {
+      display: none; 
+      position: fixed; 
+      z-index: 999; 
+      left: 0;
+      top: 0;
+      width: 100%; 
+      height: 100%; 
+      overflow: auto; 
+      background-color: rgba(0, 0, 0, 0.7);
+    }
+    .modal-content {
+      background-color: #1e1e1e;
+      margin: 10% auto;
+      padding: 20px;
+      border: 1px solid #333;
+      width: 300px;
+      color: #e0e0e0;
+    }
+    .modal-content h2 {
+      margin-top: 0;
+    }
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #blank_filler {
+      height: 100%;
+    }
+    /* Menu Footer Styles */
+    #menu-footer {
+      padding-top: 20px;
+      border-top: 1px solid #333;
+    }
+    #menu-footer p {
+      font-size: 0.8em;
+      color: #aaa;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+      <h1>Model Mayhem</h1>
+      <ul>
+        <li><a href="#" id="tab-models" class="active">Models</a></li>
+        <li><a href="#" id="tab-download">Download Model</a></li>
+        <li><a href="#" id="tab-update">Update llama.cpp</a></li>
+      </ul>
+      <div id="blank_filler"></div>
+      <!-- Menu Footer -->
+      <div id="menu-footer">
+        <p id="mm-version">Version: Loading...</p>
+      </div>
+    </div>
+    <!-- GPU Stats (fixed at the top) -->
+    <div id="gpu-stats"></div>
+    <!-- Main Content Area -->
+    <div class="main-content">
+      <!-- Tabbed Content -->
+      <div id="tabs-container">
+        <!-- Models Section -->
+        <div id="section-models" class="section">
+          <h2>Models</h2>
+          <p><em>Lists all .gguf models on disk. If loaded, you can unload or visit /go/&lt;model&gt;. If not loaded, click Load.</em></p>
+          <table id="models-table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Status</th>
+                <th>GPU(s)/Port</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <!-- Download Section -->
+        <div id="section-download" class="section" style="display: none;">
+          <h2>Download & Convert from HuggingFace</h2>
+          <p><em>Enter the repo ID (e.g. facebook/opt-350m). This triggers background download + .gguf conversion.</em></p>
+          <input type="text" id="repo_id" placeholder="e.g. facebook/opt-350m" />
+          <button id="download-btn">Download and Convert</button>
+          <div id="download-status">
+            <div class="progress-bar" style="display: none;">
+              <div id="progress" class="progress"></div>
+            </div>
+            <div id="status-text"></div>
+            <div id="log" class="log" style="display: none;"></div>
+          </div>
+        </div>
+        <!-- Update Llama Section -->
+        <div id="section-update" class="section" style="display: none;">
+          <h2>Update llama.cpp</h2>
+          <p><em>Enter the password to start the update process.</em></p>
+          <input type="password" id="update_password" placeholder="Enter password" />
+          <!-- New checkbox for rm_build flag -->
+          <div style="margin: 10px 0;">
+            <input type="checkbox" id="rm_build_checkbox" />
+            <label for="rm_build_checkbox">Remove build folder before update</label>
+          </div>
+          <button id="update-btn">Start Update</button>
+          <div id="update-status-container">
+            <div class="progress-bar" style="display: none;">
+              <div id="update-progress" class="progress"></div>
+            </div>
+            <div id="update-status-text"></div>
+            <div id="update-log" class="log" style="display: none;"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Output Logs (visible only on Models tab) -->
+      <div id="output-logs" class="section">
+        <h2>Model Load Logs</h2>
+        <p><em>Shows real-time logs for the currently loading model. Loads happen one at a time.</em></p>
+        <div id="load-log" class="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for GPU Selection -->
+  <div id="gpu-modal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Select GPU(s)</h2>
+      <p>Select one or more GPUs for loading the model:</p>
+      <div id="gpu-options"></div>
+      <button id="confirm-gpu-selection">Confirm</button>
+    </div>
+  </div>
+
+  <script>
+    // Tab Switching Logic
+    document.getElementById('tab-models').addEventListener('click', function(e) {
+      e.preventDefault();
+      document.getElementById('section-models').style.display = 'block';
+      document.getElementById('section-download').style.display = 'none';
+      document.getElementById('section-update').style.display = 'none';
+      document.getElementById('output-logs').style.display = 'block';
+      this.classList.add('active');
+      document.getElementById('tab-download').classList.remove('active');
+      document.getElementById('tab-update').classList.remove('active');
+    });
+  
+    document.getElementById('tab-download').addEventListener('click', function(e) {
+      e.preventDefault();
+      document.getElementById('section-models').style.display = 'none';
+      document.getElementById('section-download').style.display = 'block';
+      document.getElementById('section-update').style.display = 'none';
+      document.getElementById('output-logs').style.display = 'none';
+      this.classList.add('active');
+      document.getElementById('tab-models').classList.remove('active');
+      document.getElementById('tab-update').classList.remove('active');
+    });
+
+    document.getElementById('tab-update').addEventListener('click', function(e) {
+      e.preventDefault();
+      document.getElementById('section-models').style.display = 'none';
+      document.getElementById('section-download').style.display = 'none';
+      document.getElementById('section-update').style.display = 'block';
+      document.getElementById('output-logs').style.display = 'none';
+      this.classList.add('active');
+      document.getElementById('tab-models').classList.remove('active');
+      document.getElementById('tab-download').classList.remove('active');
+    });
+  
+    // GPU Stats Refresh
+    function refreshGPUStats() {
+      fetch('/health')
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById('gpu-stats');
+          container.innerHTML = '';
+          const gpus = data.gpus;
+          if (gpus.error) {
+            container.textContent = gpus.error;
+            return;
+          }
+          Object.keys(gpus).forEach(idx => {
+            const gpu = gpus[idx];
+            const total = gpu.total_memory;
+            const used = total - gpu.free_memory;
+            const pctUsed = Math.round((used / total) * 100);
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>GPU ${idx} - ${gpu.name}</strong><br>
+                             Usage: ${Math.round(used/1024/1024)} MB / ${Math.round(total/1024/1024)} MB (${pctUsed}%)<br>
+                             <div class="progress-bar">
+                               <div class="progress" style="width:${pctUsed}%"></div>
+                             </div>`;
+            container.appendChild(div);
+          });
+          // Adjust main-content margin after updating GPU stats height
+          adjustMainContentMargin();
+        })
+        .catch(err => console.error('Error fetching GPU stats:', err));
+    }
+  
+    // Models Table Refresh
+    function refreshModelsTable() {
+      Promise.all([
+        fetch('/models').then(r => r.json()),
+        fetch('/health').then(r => r.json())
+      ])
+      .then(([modelsData, healthData]) => {
+        const diskModels = modelsData.available_models || [];
+        const loadedModels = healthData.loaded_models || {};
+        const tableBody = document.querySelector('#models-table tbody');
+        tableBody.innerHTML = '';
+  
+        diskModels.forEach(m => {
+          const row = document.createElement('tr');
+          const nameTd = document.createElement('td');
+          if (loadedModels[m]) {
+            const link = document.createElement('a');
+            link.href = '/go/' + encodeURIComponent(m) + '/';
+            link.textContent = m;
+            link.target = '_blank';
+            nameTd.appendChild(link);
+          } else {
+            nameTd.textContent = m;
+          }
+  
+          const statusTd = document.createElement('td');
+          statusTd.textContent = loadedModels[m] ? 'Loaded' : 'Not Loaded';
+  
+          const gpuTd = document.createElement('td');
+          gpuTd.textContent = loadedModels[m] ?
+            `GPU(s): ${loadedModels[m].gpu} / Port: ${loadedModels[m].port}` : '-';
+  
+          const actionTd = document.createElement('td');
+          if (loadedModels[m]) {
+            const unloadBtn = document.createElement('button');
+            unloadBtn.textContent = 'Unload';
+            unloadBtn.onclick = function() {
+              unloadBtn.disabled = true;
+              unloadBtn.textContent = 'Unloading...';
+              unloadModel(m, unloadBtn);
+            };
+            actionTd.appendChild(unloadBtn);
+          } else {
+            const loadBtn = document.createElement('button');
+            loadBtn.textContent = 'Load';
+            loadBtn.title = 'Click to load with default GPU; hold click for GPU options';
+            let longPressTriggered = false;
+            let pressTimer;
+  
+            loadBtn.addEventListener('mousedown', function(e) {
+              pressTimer = setTimeout(() => {
+                longPressTriggered = true;
+                showGpuModal(m, loadBtn);
+              }, 800);
+            });
+            loadBtn.addEventListener('mouseup', function(e) {
+              clearTimeout(pressTimer);
+            });
+            loadBtn.addEventListener('mouseleave', function(e) {
+              clearTimeout(pressTimer);
+            });
+            loadBtn.addEventListener('click', function(e) {
+              if (longPressTriggered) {
+                longPressTriggered = false;
+                e.preventDefault();
+                return;
+              }
+              loadBtn.disabled = true;
+              loadBtn.textContent = 'Loading...';
+              startLoadSSE(m, loadBtn, []); // default without GPU suggestions
+            });
+  
+            actionTd.appendChild(loadBtn);
+          }
+  
+          row.appendChild(nameTd);
+          row.appendChild(statusTd);
+          row.appendChild(gpuTd);
+          row.appendChild(actionTd);
+          tableBody.appendChild(row);
+        });
+      })
+      .catch(err => console.error('Error refreshing models table:', err));
+    }
+  
+    // SSE-based Model Load with optional GPU suggestions
+    function startLoadSSE(modelName, btnRef, suggestedGpus) {
+      const loadLogEl = document.getElementById('load-log');
+      loadLogEl.style.display = 'block';
+      if (window.loadEventSource) {
+        window.loadEventSource.close();
+      }
+      fetch('/load_sse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model_name: modelName, suggested_gpus: suggestedGpus })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          loadLogEl.innerHTML += 'Error: ' + data.error + '\n';
+          btnRef.disabled = false;
+          btnRef.textContent = 'Load';
+          return;
+        }
+        subscribeLoadSSE(data.job_id, btnRef);
+      })
+      .catch(err => {
+        loadLogEl.innerHTML += 'Error: ' + err + '\n';
+        btnRef.disabled = false;
+        btnRef.textContent = 'Load';
+      });
+    }
+  
+    function subscribeLoadSSE(jobId, btnRef) {
+      window.loadEventSource = new EventSource('/load_sse/status/' + jobId);
+      const loadLogEl = document.getElementById('load-log');
+      window.loadEventSource.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.error) {
+          loadLogEl.innerHTML += '[ERROR] ' + data.error + '\n';
+          window.loadEventSource.close();
+          btnRef.disabled = false;
+          btnRef.textContent = 'Load';
+          return;
+        }
+        if (data.logs && data.logs.length > 0) {
+          data.logs.forEach(msg => {
+            if (!msg.endsWith('\n')) msg += '\n';
+            loadLogEl.innerHTML += msg;
+          });
+          loadLogEl.scrollTop = loadLogEl.scrollHeight;
+        }
+        if (data.status === 'completed') {
+          loadLogEl.innerHTML += '\n[INFO] Model load completed.\n';
+          window.loadEventSource.close();
+          btnRef.disabled = false;
+          btnRef.textContent = 'Load';
+          refreshAll();
+        } else if (data.status === 'failed') {
+          loadLogEl.innerHTML += '\n[ERROR] Loading failed: ' + (data.error || '') + '\n';
+          window.loadEventSource.close();
+          btnRef.disabled = false;
+          btnRef.textContent = 'Load';
+          refreshAll();
+        }
+      };
+      window.loadEventSource.onerror = function() {
+        loadLogEl.innerHTML += '\n[SSE] Connection error.\n';
+        window.loadEventSource.close();
+        btnRef.disabled = false;
+        btnRef.textContent = 'Load';
+        refreshAll();
+      };
+    }
+  
+    // Unload Model
+    function unloadModel(modelName, btnRef) {
+      fetch('/unload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ models: [modelName] })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          alert('Error: ' + data.error);
+          btnRef.disabled = false;
+          btnRef.textContent = 'Unload';
+          return;
+        }
+        btnRef.textContent = 'Unloaded';
+        setTimeout(refreshAll, 1000);
+      })
+      .catch(err => {
+        alert('Error: ' + err);
+        btnRef.disabled = false;
+        btnRef.textContent = 'Unload';
+      });
+    }
+  
+    // HF Download/Convert
+    function startDownload() {
+      const repoId = document.getElementById('repo_id').value.trim();
+      if (!repoId) {
+        alert('Please enter a HuggingFace repo ID');
+        return;
+      }
+      const downloadStatus = document.getElementById('download-status');
+      const progressBar = downloadStatus.querySelector('.progress-bar');
+      const progressFill = document.getElementById('progress');
+      const statusText = document.getElementById('status-text');
+      const logEl = document.getElementById('log');
+      progressBar.style.display = 'block';
+      progressFill.style.width = '0%';
+      statusText.textContent = 'Initializing...';
+      logEl.textContent = '';
+      logEl.style.display = 'block';
+      if (window.downloadEventSource) {
+        window.downloadEventSource.close();
+      }
+      fetch('/oob_download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo_id: repoId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          statusText.textContent = 'Error: ' + data.error;
+          return;
+        }
+        subscribeToDownloadSSE(data.job_id);
+      })
+      .catch(err => {
+        statusText.textContent = 'Error: ' + err.message;
+      });
+    }
+  
+    function subscribeToDownloadSSE(jobId) {
+      window.downloadEventSource = new EventSource('/oob_download/status/' + jobId);
+      window.downloadEventSource.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.error) {
+          document.getElementById('status-text').textContent = 'Error: ' + data.error;
+          window.downloadEventSource.close();
+          return;
+        }
+        document.getElementById('progress').style.width = data.progress + '%';
+        let st = 'Status: ' + data.status;
+        if (data.status === 'completed') {
+          st += ' - Model saved to: ' + data.result_path;
+          window.downloadEventSource.close();
+          refreshAll();
+        } else if (data.status === 'failed') {
+          st += ' - Error: ' + data.error;
+          window.downloadEventSource.close();
+        }
+        document.getElementById('status-text').textContent = st;
+        if (data.message) {
+          const logEl = document.getElementById('log');
+          logEl.innerHTML += data.message + '\n';
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+      };
+      window.downloadEventSource.onerror = function() {
+        document.getElementById('status-text').textContent += ' (Connection lost)';
+        window.downloadEventSource.close();
+      };
+    }
+  
+    // Update Llama Functions
+    function startUpdate() {
+      const password = document.getElementById('update_password').value.trim();
+      if (!password) {
+        alert('Please enter the password');
+        return;
+      }
+      // Read the state of the new checkbox for rm_build flag
+      const rmBuild = document.getElementById('rm_build_checkbox').checked;
+  
+      const updateStatusContainer = document.getElementById('update-status-container');
+      const progressBar = updateStatusContainer.querySelector('.progress-bar');
+      const progressFill = document.getElementById('update-progress');
+      const statusText = document.getElementById('update-status-text');
+      const logEl = document.getElementById('update-log');
+      progressBar.style.display = 'block';
+      progressFill.style.width = '0%';
+      statusText.textContent = 'Initializing update...';
+      logEl.textContent = '';
+      logEl.style.display = 'block';
+      if (window.updateEventSource) {
+        window.updateEventSource.close();
+      }
+      fetch('/update_llama', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // Include the rm_build flag in the request body
+        body: JSON.stringify({ password: password, rm_build: rmBuild })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          statusText.textContent = 'Error: ' + data.error;
+          return;
+        }
+        subscribeToUpdateSSE(data.job_id);
+      })
+      .catch(err => {
+        statusText.textContent = 'Error: ' + err.message;
+      });
+    }
+  
+    // Updated subscribeToUpdateSSE to extract progress from logs
+    function subscribeToUpdateSSE(jobId) {
+      window.updateEventSource = new EventSource('/update_llama/status/' + jobId);
+      const statusText = document.getElementById('update-status-text');
+      const progressFill = document.getElementById('update-progress');
+      const logEl = document.getElementById('update-log');
+      
+      window.updateEventSource.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        
+        if (data.error) {
+          statusText.textContent = 'Error: ' + data.error;
+          window.updateEventSource.close();
+          return;
+        }
+        
+        // If a progress field is sent, update directly
+        if (data.progress !== undefined) {
+          progressFill.style.width = data.progress + '%';
+        }
+        
+        let st = 'Status: ' + data.status;
+        if (data.status === 'completed') {
+          st += ' - Update completed successfully.';
+          window.updateEventSource.close();
+        } else if (data.status === 'failed') {
+          st += ' - Update failed: ' + (data.error || '');
+          window.updateEventSource.close();
+        }
+        statusText.textContent = st;
+        
+        // Process log messages and extract progress percentage from lines like "[ 50%]"
+        if (data.logs && Array.isArray(data.logs) && data.logs.length > 0) {
+          data.logs.forEach(msg => {
+            if (!msg.endsWith('\n')) msg += '\n';
+            logEl.innerHTML += msg;
+            // Extract percentage from the log message using a regex
+            const match = msg.match(/\[\s*(\d+)%\]/);
+            if (match && match[1]) {
+              const pct = parseInt(match[1]);
+              progressFill.style.width = pct + '%';
+            }
+          });
+          logEl.scrollTop = logEl.scrollHeight;
+        } else if (data.message) {
+          logEl.innerHTML += data.message + '\n';
+          const match = data.message.match(/\[\s*(\d+)%\]/);
+          if (match && match[1]) {
+            const pct = parseInt(match[1]);
+            progressFill.style.width = pct + '%';
+          }
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+      };
+      
+      window.updateEventSource.onerror = function() {
+        statusText.textContent += ' (Connection lost)';
+        window.updateEventSource.close();
+      };
+    }
+  
+    // Event Listener for Update button
+    document.getElementById('update-btn').addEventListener('click', startUpdate);
+  
+    // Update Version Footer
+    function updateVersion() {
+      fetch('/version')
+        .then(res => res.json())
+        .then(data => {
+          const versionElement = document.getElementById('mm-version');
+          const fullVersion = data.version;
+          let versionNumber = 'Unknown';
+          const lines = fullVersion.split('\n');
+          for (let line of lines) {
+            if (line.startsWith('version:')) {
+              versionNumber = line.replace('version:', '').trim();
+              break;
+            }
+          }
+          versionElement.textContent = "Version: " + versionNumber;
+          versionElement.title = fullVersion;
+        })
+        .catch(err => console.error("Error fetching version:", err));
+    }
+  
+    function refreshAll() {
+      refreshGPUStats();
+      refreshModelsTable();
+      updateVersion();
+    }
+  
+    // Modal for GPU selection
+    function showGpuModal(modelName, btnRef) {
+      fetch('/health')
+        .then(res => res.json())
+        .then(data => {
+          let gpus = data.gpus;
+          const container = document.getElementById('gpu-options');
+          container.innerHTML = '';
+          for (let idx in gpus) {
+            const gpu = gpus[idx];
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = 'gpu-' + idx;
+            checkbox.value = idx;
+            const label = document.createElement('label');
+            label.htmlFor = 'gpu-' + idx;
+            label.textContent = `GPU ${idx} - ${gpu.name}`;
+            container.appendChild(checkbox);
+            container.appendChild(label);
+            container.appendChild(document.createElement('br'));
+          }
+          const modal = document.getElementById('gpu-modal');
+          modal.style.display = 'block';
+          document.getElementById('confirm-gpu-selection').onclick = function() {
+            const checkboxes = container.querySelectorAll('input[type="checkbox"]:checked');
+            let selectedGpus = [];
+            checkboxes.forEach(chk => {
+              selectedGpus.push(parseInt(chk.value));
+            });
+            modal.style.display = 'none';
+            btnRef.disabled = true;
+            btnRef.textContent = 'Loading...';
+            startLoadSSE(modelName, btnRef, selectedGpus);
+          };
+          document.querySelector('#gpu-modal .close').onclick = function() {
+            modal.style.display = 'none';
+            btnRef.disabled = false;
+            btnRef.textContent = 'Load';
+          };
+        })
+        .catch(err => {
+          alert('Error fetching GPU info: ' + err);
+        });
+    }
+  
+    // Dynamically adjust main-content margin based on GPU stats height
+    function adjustMainContentMargin() {
+      const gpuStats = document.getElementById('gpu-stats');
+      const mainContent = document.querySelector('.main-content');
+      if (gpuStats && mainContent) {
+        mainContent.style.marginTop = gpuStats.offsetHeight + 'px';
+      }
+    }
+  
+    window.addEventListener('resize', adjustMainContentMargin);
+  
+    document.addEventListener('DOMContentLoaded', function() {
+      refreshAll();
+      setInterval(refreshGPUStats, 3000);
+      document.getElementById('download-btn').addEventListener('click', startDownload);
+      adjustMainContentMargin();
+    });
+  </script>
+</body>
+</html>

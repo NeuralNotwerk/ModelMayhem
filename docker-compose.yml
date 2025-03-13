@@ -1,0 +1,22 @@
+services:
+  ml_service:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    # Ensure the container has access to all GPUs on the host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all      # Use all available GPUs (or specify a number)
+              capabilities: [gpu]
+    environment:
+      - TRANSFORMERS_CACHE=/hf_cache   # Point Hugging Face cache to the /hf_cache volume
+    volumes:
+      - ./models:/models       # Mount host's ./models directory to container /models
+      - ./hf_cache:/hf_cache   # Mount host's ./hf_cache directory to container /hf_cache
+      - ./mm_resources:/mm_resources
+    ports:
+      - "11434:8080"    # Maps host port 11434 to container port 11434
+    entrypoint: ["/bin/bash", "-c", "chmod +x /mm_resources/entrypoint.sh; /mm_resources/entrypoint.sh"]
